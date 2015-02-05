@@ -25,6 +25,7 @@
 	"use strict";
 
 	var dragEl,
+		startIndex,
 		ghostEl,
 		cloneEl,
 		rootEl,
@@ -33,9 +34,6 @@
 
 		lastEl,
 		lastCSS,
-
-		oldIndex,
-		newIndex,
 
 		activeGroup,
 		autoScroll = {},
@@ -59,7 +57,6 @@
 
 			evt.item = targetEl || rootEl;
 			evt.from = fromEl || rootEl;
-			evt.clone = cloneEl;
 
 			evt.oldIndex = startIndex;
 			evt.newIndex = newIndex;
@@ -97,6 +94,7 @@
 			store: null,
 			handle: null,
 			scroll: true,
+			leaveinplace: false,
 			scrollSensitivity: 30,
 			scrollSpeed: 10,
 			draggable: /[uo]l/i.test(el.nodeName) ? 'li' : '>*',
@@ -106,9 +104,7 @@
 			animation: 0,
 			setData: function (dataTransfer, dragEl) {
 				dataTransfer.setData('Text', dragEl.textContent);
-			},
-			dropBubble: false,
-			dragoverBubble: false
+			}
 		};
 
 
@@ -177,7 +173,7 @@
 			Sortable.active = this;
 
 			// Drag start event
-			_dispatchEvent(rootEl, 'start', dragEl, rootEl, oldIndex);
+			_dispatchEvent(rootEl, 'start', dragEl, rootEl, startIndex);
 		},
 
 
@@ -201,12 +197,12 @@
 			target = _closest(target, options.draggable, el);
 
 			// get the index of the dragged element within its parent
-			oldIndex = _index(target);
+			startIndex = _index(target);
 
 			// Check filter
 			if (typeof filter === 'function') {
 				if (filter.call(this, evt, target, this)) {
-					_dispatchEvent(originalTarget, 'filter', target, el, oldIndex);
+					_dispatchEvent(originalTarget, 'filter', target, el, startIndex);
 					evt.preventDefault();
 					return; // cancel dnd
 				}
@@ -216,7 +212,7 @@
 					criteria = _closest(originalTarget, criteria.trim(), el);
 
 					if (criteria) {
-						_dispatchEvent(criteria, 'filter', target, el, oldIndex);
+						_dispatchEvent(criteria, 'filter', target, el, startIndex);
 						return true;
 					}
 				});
@@ -276,11 +272,18 @@
 					}
 				} catch (err) {
 				}
+
+
+				if (activeGroup.pull == 'clone' || this.options.leaveinplace) {
+					cloneEl = dragEl.cloneNode(true);
+					_css(cloneEl, 'display', 'none');
+					rootEl.insertBefore(cloneEl, dragEl);
+				}
 			}
 		},
 
 		_emulateDragOver: function () {
-			if (touchEvt) {
+			if (touchEvt && this.options.sort) {
 				_css(ghostEl, 'display', 'none');
 
 				var target = document.elementFromPoint(touchEvt.clientX, touchEvt.clientY),
@@ -315,7 +318,7 @@
 
 
 		_onTouchMove: function (/**TouchEvent*/evt) {
-			if (tapEvt) {
+			if (tapEvt && this.options.sort) {
 				var touch = evt.touches[0],
 					dx = touch.clientX - tapEvt.clientX,
 					dy = touch.clientY - tapEvt.clientY,
@@ -339,12 +342,6 @@
 				options = this.options;
 
 			this._offUpEvents();
-
-			if (activeGroup.pull == 'clone') {
-				cloneEl = dragEl.cloneNode(true);
-				_css(cloneEl, 'display', 'none');
-				rootEl.insertBefore(cloneEl, dragEl);
-			}
 
 			if (isTouch) {
 				var rect = dragEl.getBoundingClientRect(),
@@ -376,10 +373,8 @@
 				this._loopId = setInterval(this._emulateDragOver, 150);
 			}
 			else {
-				if (dataTransfer) {
-					dataTransfer.effectAllowed = 'move';
-					options.setData && options.setData.call(this, dataTransfer, dragEl);
-				}
+				dataTransfer.effectAllowed = 'move';
+				options.setData && options.setData.call(this, dataTransfer, dragEl);
 
 				_on(document, 'drop', this);
 			}
@@ -466,7 +461,7 @@
 
 			if (evt.preventDefault !== void 0) {
 				evt.preventDefault();
-				!options.dragoverBubble && evt.stopPropagation();
+				evt.stopPropagation();
 			}
 
 			if (!_silent && activeGroup &&
@@ -512,6 +507,9 @@
 					el.appendChild(dragEl);
 					this._animate(dragRect, dragEl);
 					target && this._animate(targetRect, target);
+				}
+				else if (!this.options.sort) {
+					// do nothing
 				}
 				else if (target && !target.animated && target !== dragEl && (target.parentNode[expando] !== void 0)) {
 					if (lastEl !== target) {
@@ -587,8 +585,7 @@
 		},
 
 		_onDrop: function (/**Event*/evt) {
-			var el = this.el,
-				options = this.options;
+			var el = this.el;
 
 			clearInterval(this._loopId);
 			clearInterval(autoScroll.pid);
@@ -603,45 +600,40 @@
 
 			if (evt) {
 				evt.preventDefault();
-				!options.dropBubble && evt.stopPropagation();
+				evt.stopPropagation();
 
 				ghostEl && ghostEl.parentNode.removeChild(ghostEl);
 
 				if (dragEl) {
 					_off(dragEl, 'dragend', this);
 
+					// get the index of the dragged element within its parent
+					var newIndex = _index(dragEl);
+
 					_disableDraggable(dragEl);
 					_toggleClass(dragEl, this.options.ghostClass, false);
 
 					if (rootEl !== dragEl.parentNode) {
-						newIndex = _index(dragEl);
-
 						// drag from one list and drop into another
-						_dispatchEvent(dragEl.parentNode, 'sort', dragEl, rootEl, oldIndex, newIndex);
-						_dispatchEvent(rootEl, 'sort', dragEl, rootEl, oldIndex, newIndex);
+						_dispatchEvent(dragEl.parentNode, 'sort', dragEl, rootEl, startIndex, newIndex);
+						_dispatchEvent(rootEl, 'sort', dragEl, rootEl, startIndex, newIndex);
 
 						// Add event
-						_dispatchEvent(dragEl, 'add', dragEl, rootEl, oldIndex, newIndex);
+						_dispatchEvent(dragEl, 'add', dragEl, rootEl, startIndex, newIndex);
 
 						// Remove event
-						_dispatchEvent(rootEl, 'remove', dragEl, rootEl, oldIndex, newIndex);
+						_dispatchEvent(rootEl, 'remove', dragEl, rootEl, startIndex, newIndex);
 					}
-					else {
-						// Remove clone
+					else if (dragEl.nextSibling !== nextEl) {
+						// drag & drop within the same list
+						_dispatchEvent(rootEl, 'update', dragEl, rootEl, startIndex, newIndex);
+						_dispatchEvent(rootEl, 'sort', dragEl, rootEl, startIndex, newIndex);
+
 						cloneEl && cloneEl.parentNode.removeChild(cloneEl);
-
-						if (dragEl.nextSibling !== nextEl) {
-							// Get the index of the dragged element within its parent
-							newIndex = _index(dragEl);
-
-							// drag & drop within the same list
-							_dispatchEvent(rootEl, 'update', dragEl, rootEl, oldIndex, newIndex);
-							_dispatchEvent(rootEl, 'sort', dragEl, rootEl, oldIndex, newIndex);
-						}
 					}
 
 					// Drag end event
-					Sortable.active && _dispatchEvent(rootEl, 'end', dragEl, rootEl, oldIndex, newIndex);
+					Sortable.active && _dispatchEvent(rootEl, 'end', dragEl, rootEl, startIndex, newIndex);
 				}
 
 				// Set NULL
@@ -821,7 +813,7 @@
 			do {
 				if (
 					(tag === '>*' && el.parentNode === ctx) || (
-						(tag === '' || el.nodeName.toUpperCase() == tag) &&
+						(tag === '' || el.nodeName == tag) &&
 						(!selector.length || ((' ' + el.className + ' ').match(re) || []).length == selector.length)
 					)
 				) {
@@ -949,7 +941,7 @@
 	 */
 	function _index(/**HTMLElement*/el) {
 		var index = 0;
-		while (el && (el = el.previousElementSibling) && (el.nodeName.toUpperCase() !== 'TEMPLATE')) {
+		while (el && (el = el.previousElementSibling) && (el.nodeName !== 'TEMPLATE')) {
 			index++;
 		}
 		return index;
