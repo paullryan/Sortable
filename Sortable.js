@@ -99,6 +99,7 @@
 				this.options = options = (options || {});
 			}
 
+			dragEl =
 
 			// Default options
 			var defaults = {
@@ -208,6 +209,8 @@
 			// get the index of the dragged element within its parent
 			startIndex = _index(target);
 
+			console.log(startIndex);
+
 			// Check filter
 			if (typeof filter === 'function') {
 				if (filter.call(this, evt, target, this)) {
@@ -231,7 +234,6 @@
 					return; // cancel dnd
 				}
 			}
-
 
 			// Prepare `dragstart`
 			if (target && !dragEl && (target.parentNode === el)) {
