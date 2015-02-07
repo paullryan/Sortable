@@ -64,7 +64,7 @@
 			rootEl.dispatchEvent(evt);
 		},
 
-		_customEvents = 'onAdd onUpdate onRemove onStart onEnd onFilter onSort'.split(' '),
+		_customEvents = 'onAdd onUpdate onRemove onStart onEnd onFilter onSort onCancel'.split(' '),
 
 		noop = function () {},
 
@@ -82,89 +82,98 @@
 	 * @param  {Object}       [options]
 	 */
 	function Sortable(el, options) {
-		this.el = el; // root element
-		this.options = options = (options || {});
-
-
-		// Default options
-		var defaults = {
-			group: Math.random(),
-			sort: true,
-			disabled: false,
-			store: null,
-			handle: null,
-			scroll: true,
-			leaveinplace: false,
-			scrollSensitivity: 30,
-			scrollSpeed: 10,
-			draggable: /[uo]l/i.test(el.nodeName) ? 'li' : '>*',
-			ghostClass: 'sortable-ghost',
-			ignore: 'a, img',
-			filter: null,
-			animation: 0,
-			setData: function (dataTransfer, dragEl) {
-				dataTransfer.setData('Text', dragEl.textContent);
-			}
-		};
-
-
-		// Set default options
-		for (var name in defaults) {
-			!(name in options) && (options[name] = defaults[name]);
-		}
-
-
-		var group = options.group;
-
-		if (!group || typeof group != 'object') {
-			group = options.group = { name: group };
-		}
-
-
-		['pull', 'put'].forEach(function (key) {
-			if (!(key in group)) {
-				group[key] = true;
-			}
-		});
-
-
-		// Define events
-		_customEvents.forEach(function (name) {
-			options[name] = _bind(this, options[name] || noop);
-			_on(el, name.substr(2).toLowerCase(), options[name]);
-		}, this);
-
-
-		// Export group name
-		el[expando] = group.name + ' ' + (group.put.join ? group.put.join(' ') : '');
-
-
-		// Bind all private methods
-		for (var fn in this) {
-			if (fn.charAt(0) === '_') {
-				this[fn] = _bind(this, this[fn]);
-			}
-		}
-
-
-		// Bind events
-		_on(el, 'mousedown', this._onTapStart);
-		_on(el, 'touchstart', this._onTapStart);
-		supportIEdnd && _on(el, 'selectstart', this._onTapStart);
-
-		_on(el, 'dragover', this._onDragOver);
-		_on(el, 'dragenter', this._onDragOver);
-
-		touchDragOverListeners.push(this._onDragOver);
-
-		// Restore sorting
-		options.store && this.sort(options.store.get(this));
+		this._initialize(el, options);
 	}
 
 
 	Sortable.prototype = /** @lends Sortable.prototype */ {
 		constructor: Sortable,
+		isCancelled: true,
 
+		_initialize: function(el, options) {
+			if(el) {
+				this.el = el; // root element
+			}
+
+			if(options) {
+				this.options = options = (options || {});
+			}
+
+
+			// Default options
+			var defaults = {
+				group: Math.random(),
+				sort: true,
+				disabled: false,
+				store: null,
+				handle: null,
+				scroll: true,
+				leaveinplace: false,
+				scrollSensitivity: 30,
+				scrollSpeed: 10,
+				draggable: /[uo]l/i.test(this.el.nodeName) ? 'li' : '>*',
+				ghostClass: 'sortable-ghost',
+				ignore: 'a, img',
+				filter: null,
+				animation: 0,
+				setData: function (dataTransfer, dragEl) {
+					dataTransfer.setData('Text', dragEl.textContent);
+				}
+			};
+
+
+			// Set default options
+			for (var name in defaults) {
+				!(name in this.options) && (this.options[name] = defaults[name]);
+			}
+
+
+			var group = this.options.group;
+
+			if (!group || typeof group != 'object') {
+				group = this.options.group = { name: group };
+			}
+
+
+			['pull', 'put'].forEach(function (key) {
+				if (!(key in group)) {
+					group[key] = true;
+				}
+			});
+
+
+			// Define events
+			_customEvents.forEach(function (name) {
+				this.options[name] = _bind(this, this.options[name] || noop);
+				_on(this.el, name.substr(2).toLowerCase(), this.options[name]);
+			}.bind(this), this);
+
+
+			// Export group name
+			this.el[expando] = group.name + ' ' + (group.put.join ? group.put.join(' ') : '');
+
+
+			// Bind all private methods
+			for (var fn in this) {
+				if (fn.charAt(0) === '_') {
+					this[fn] = _bind(this, this[fn]);
+				}
+			}
+
+
+			// Bind events
+			_on(this.el, 'mousedown', this._onTapStart);
+			_on(this.el, 'touchstart', this._onTapStart);
+			supportIEdnd && _on(this.el, 'selectstart', this._onTapStart);
+
+			_on(this.el, 'dragover', this._onDragOver);
+			_on(this.el, 'dragenter', this._onDragOver);
+
+			touchDragOverListeners.push(this._onDragOver);
+
+			// Restore sorting
+			this.options.store && this.sort(this.options.store.get(this));
+		},
 
 		_dragStarted: function () {
 			// Apply effect
@@ -223,6 +232,7 @@
 				}
 			}
 
+
 			// Prepare `dragstart`
 			if (target && !dragEl && (target.parentNode === el)) {
 				// IE 9 Support
@@ -230,6 +240,7 @@
 
 				tapEvt = evt;
 
+				this.isCancelled = true;
 				rootEl = this.el;
 				dragEl = target;
 				nextEl = dragEl.nextSibling;
@@ -254,11 +265,12 @@
 					evt.preventDefault();
 				}
 
-				_on(document, 'mouseup', this._onDrop);
-				_on(document, 'touchend', this._onDrop);
-				_on(document, 'touchcancel', this._onDrop);
+				//_on(document, 'mouseup', this._onDrop);
+				//_on(document, 'touchend', this._onDrop);
+				//_on(document, 'touchcancel', this._onDrop);
+				_on(document, 'drop', this._onDrop);
 
-				_on(dragEl, 'dragend', this);
+				_on(dragEl, 'dragend', this._onDragEnd);
 				_on(rootEl, 'dragstart', this._onDragStart);
 
 				_on(document, 'dragover', this);
@@ -273,13 +285,27 @@
 				} catch (err) {
 				}
 
-
 				if (activeGroup.pull == 'clone' || this.options.leaveinplace) {
 					cloneEl = dragEl.cloneNode(true);
+					if(this.options.leaveinplace) {
+						$(cloneEl).addClass('sortable-lip-clone');
+					}
 					_css(cloneEl, 'display', 'none');
 					rootEl.insertBefore(cloneEl, dragEl);
 				}
 			}
+		},
+
+		_onDragEnd: function(evt) {
+			if(this.isCancelled && dragEl) {
+				ghostEl && ghostEl.parentNode.removeChild(ghostEl);
+				cloneEl && cloneEl.parentNode.removeChild(cloneEl);
+				_toggleClass(dragEl, this.options.ghostClass, false);
+				_dispatchEvent(dragEl, 'cancel', dragEl, rootEl, startIndex);
+			}
+			_off(dragEl, 'dragend', this._onDragEnd);
+			this._reset();
+			this._initialize();
 		},
 
 		_emulateDragOver: function () {
@@ -578,10 +604,11 @@
 		},
 
 		_offUpEvents: function () {
-			_off(document, 'mouseup', this._onDrop);
+			//_off(document, 'mouseup', this._onDrop);
 			_off(document, 'touchmove', this._onTouchMove);
-			_off(document, 'touchend', this._onDrop);
-			_off(document, 'touchcancel', this._onDrop);
+			//_off(document, 'touchend', this._onDrop);
+			//_off(document, 'touchcancel', this._onDrop);
+			_off(document, 'drop', this._onDrop);
 		},
 
 		_onDrop: function (/**Event*/evt) {
@@ -605,7 +632,7 @@
 				ghostEl && ghostEl.parentNode.removeChild(ghostEl);
 
 				if (dragEl) {
-					_off(dragEl, 'dragend', this);
+					this.isCancelled = false;
 
 					// get the index of the dragged element within its parent
 					var newIndex = _index(dragEl);
@@ -622,7 +649,13 @@
 						_dispatchEvent(dragEl, 'add', dragEl, rootEl, startIndex, newIndex);
 
 						// Remove event
-						_dispatchEvent(rootEl, 'remove', dragEl, rootEl, startIndex, newIndex);
+						if(!this.options.leaveinplace) {
+							_dispatchEvent(rootEl, 'remove', dragEl, rootEl, startIndex, newIndex);
+						}
+
+						if(cloneEl && this.options.leaveinplace){
+							$(cloneEl).removeClass('sortable-lip-clone');
+						}
 					}
 					else if (dragEl.nextSibling !== nextEl) {
 						// drag & drop within the same list
@@ -636,25 +669,28 @@
 					Sortable.active && _dispatchEvent(rootEl, 'end', dragEl, rootEl, startIndex, newIndex);
 				}
 
-				// Set NULL
-				rootEl =
-				dragEl =
-				ghostEl =
-				nextEl =
-				cloneEl =
-
-				tapEvt =
-				touchEvt =
-
-				lastEl =
-				lastCSS =
-
-				activeGroup =
-				Sortable.active = null;
+				this._reset();
 
 				// Save sorting
 				this.save();
 			}
+		},
+
+		_reset: function() {
+			rootEl =
+			dragEl =
+			ghostEl =
+			nextEl =
+			cloneEl =
+
+			tapEvt =
+			touchEvt =
+
+			lastEl =
+			lastCSS =
+
+			activeGroup =
+			Sortable.active = null;
 		},
 
 
@@ -839,7 +875,9 @@
 
 
 	function _off(el, event, fn) {
-		el.removeEventListener(event, fn, false);
+		if(el) {
+			el.removeEventListener(event, fn, false);
+		}
 	}
 
 
@@ -942,7 +980,9 @@
 	function _index(/**HTMLElement*/el) {
 		var index = 0;
 		while (el && (el = el.previousElementSibling) && (el.nodeName !== 'TEMPLATE')) {
-			index++;
+			if(!$(el).hasClass('sortable-lip-clone')){
+				index++;
+			}
 		}
 		return index;
 	}
