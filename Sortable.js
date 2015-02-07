@@ -91,6 +91,7 @@
 		isCancelled: true,
 
 		_initialize: function(el, options) {
+			this._reset();
 			if(el) {
 				this.el = el; // root element
 			}
@@ -98,8 +99,6 @@
 			if(options) {
 				this.options = options = (options || {});
 			}
-
-			dragEl =
 
 			// Default options
 			var defaults = {
