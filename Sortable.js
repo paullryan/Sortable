@@ -264,9 +264,9 @@
 					evt.preventDefault();
 				}
 
-				//_on(document, 'mouseup', this._onDrop);
-				//_on(document, 'touchend', this._onDrop);
-				//_on(document, 'touchcancel', this._onDrop);
+				_on(document, 'mouseup', this._onDrop);
+				_on(document, 'touchend', this._onDrop);
+				_on(document, 'touchcancel', this._onDrop);
 				_on(document, 'drop', this._onDrop);
 
 				_on(dragEl, 'dragend', this._onDragEnd);
@@ -603,10 +603,10 @@
 		},
 
 		_offUpEvents: function () {
-			//_off(document, 'mouseup', this._onDrop);
+			_off(document, 'mouseup', this._onDrop);
 			_off(document, 'touchmove', this._onTouchMove);
-			//_off(document, 'touchend', this._onDrop);
-			//_off(document, 'touchcancel', this._onDrop);
+			_off(document, 'touchend', this._onDrop);
+			_off(document, 'touchcancel', this._onDrop);
 			_off(document, 'drop', this._onDrop);
 		},
 
